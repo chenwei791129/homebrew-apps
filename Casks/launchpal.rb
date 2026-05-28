@@ -1,6 +1,6 @@
 cask "launchpal" do
-  version "1.16.0"
-  sha256 "fc1ddd2975e45f98e145a2c9bb4785291b9e2000949dbfafd9804e3a5c8287cf"
+  version "1.17.0"
+  sha256 "4b2c6e65bdb18c308beed97aba124f0415e34433aa3cc1757f3c7f80ee48c6e9"
 
   url "https://github.com/chenwei791129/launchpal/releases/download/v#{version}/LaunchPal.dmg"
   name "LaunchPal"
