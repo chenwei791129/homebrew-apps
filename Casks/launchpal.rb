@@ -7,6 +7,13 @@ cask "launchpal" do
   desc "macOS LaunchAgent GUI management tool"
   homepage "https://github.com/chenwei791129/launchpal"
 
+  # Must stay in step with LSMinimumSystemVersion in the app bundle. LaunchPal's
+  # binaries are stamped as requiring macOS 13, and dyld refuses to load them on
+  # anything older — without this stanza Homebrew would install an app that
+  # cannot launch, and on an unsigned app that failure reads as a Gatekeeper
+  # problem rather than a version one.
+  depends_on macos: :ventura
+
   app "launchpal.app"
 
   postflight do
