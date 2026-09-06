@@ -16,9 +16,10 @@ cask "launchpal" do
 
   app "launchpal.app"
 
-  postflight do
-    system_command "/usr/bin/xattr",
-                   args: ["-dr", "com.apple.quarantine", "#{appdir}/launchpal.app"]
+  # `args` cannot use Ruby interpolation inside a steps block; `{{appdir}}` is
+  # the install-steps template token Homebrew expands at run time.
+  postflight_steps do
+    run "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "{{appdir}}/launchpal.app"]
   end
 
   uninstall quit: "com.wails.launchpal"
