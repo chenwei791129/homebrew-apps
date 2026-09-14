@@ -1,0 +1,138 @@
+name: Test Casks
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "Casks/**.rb"
+      - ".github/workflows/test-casks.yml"
+      - ".github/scripts/verify-cask.sh"
+  pull_request:
+    paths:
+      - "Casks/**.rb"
+      - ".github/workflows/test-casks.yml"
+      - ".github/scripts/verify-cask.sh"
+  workflow_dispatch:
+    inputs:
+      cask:
+        description: "Only test this cask (default: every cask in Casks/)"
+        required: false
+        type: string
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  TAP: chenwei791129/apps
+  HOMEBREW_NO_ANALYTICS: 1
+  HOMEBREW_NO_ENV_HINTS: 1
+  HOMEBREW_NO_AUTO_UPDATE: 1
+  # Never let a runner image default (e.g. --no-quarantine) reach the install:
+  # the whole point of this workflow is to test quarantine removal for real.
+  HOMEBREW_CASK_OPTS: ""
+
+jobs:
+  # Every .rb file in Casks/ becomes a matrix entry, so a new cask is covered
+  # by this workflow as soon as it is added — no changes needed here.
+  discover:
+    name: Discover casks
+    runs-on: ubuntu-latest
+    outputs:
+      casks: ${{ steps.list.outputs.casks }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - id: list
+        env:
+          ONLY: ${{ inputs.cask }}
+        run: |
+          set -euo pipefail
+          if [ -n "${ONLY}" ]; then
+            test -f "Casks/${ONLY}.rb" || { echo "::error::Casks/${ONLY}.rb does not exist"; exit 1; }
+            casks="$(printf '%s\n' "${ONLY}" | jq -Rrc '[.]')"
+          else
+            casks="$(find Casks -name '*.rb' -exec basename {} .rb \; | sort | jq -Rrc '[inputs]' -n)"
+          fi
+          if [ "${casks}" = "[]" ]; then
+            echo "::error::No casks found under Casks/"
+            exit 1
+          fi
+          echo "casks=${casks}" >> "$GITHUB_OUTPUT"
+          echo "Testing: ${casks}"
+
+  test:
+    name: ${{ matrix.cask }} on ${{ matrix.runner }}
+    needs: discover
+    strategy:
+      fail-fast: false
+      matrix:
+        cask: ${{ fromJSON(needs.discover.outputs.casks) }}
+        runner: [macos-latest]
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v7
+
+      # Homebrew 7 changed Cask quarantine internals and install steps, so the
+      # version under test is pinned to 7+ and printed for failure triage.
+      - name: Update Homebrew and require 7.x
+        run: |
+          set -euo pipefail
+          brew update --quiet
+          brew --version
+          brew config
+          major="$(brew --version | head -1 | sed -E 's/^Homebrew ([0-9]+).*/\1/')"
+          if [ "${major}" -lt 7 ]; then
+            echo "::error::Homebrew 7 or newer is required, found ${major}"
+            exit 1
+          fi
+
+      # Tap the checkout itself rather than the published tap, so a pull
+      # request tests its own Cask changes.
+      - name: Tap the checkout
+        run: |
+          set -euo pipefail
+          tap_dir="$(brew --repository)/Library/Taps/${TAP%/*}/homebrew-${TAP#*/}"
+          mkdir -p "$(dirname "${tap_dir}")"
+          ln -s "${GITHUB_WORKSPACE}" "${tap_dir}"
+          # Homebrew 7 refuses to load casks from untrusted third-party taps.
+          brew trust --tap "${TAP}"
+          brew tap
+
+      - name: brew audit
+        env:
+          CASK: ${{ matrix.cask }}
+        run: brew audit --cask "${TAP}/${CASK}"
+
+      - name: brew install
+        env:
+          CASK: ${{ matrix.cask }}
+        run: brew install --cask --verbose "${TAP}/${CASK}"
+
+      - name: Verify installed artifacts
+        env:
+          CASK: ${{ matrix.cask }}
+        run: ./.github/scripts/verify-cask.sh "${TAP}/${CASK}" "Casks/${CASK}.rb"
+
+      # A reinstall exercises uninstall stanzas and re-runs the install steps on
+      # a machine that has already seen the app once.
+      - name: Uninstall and reinstall
+        env:
+          CASK: ${{ matrix.cask }}
+        run: |
+          set -euo pipefail
+          brew uninstall --cask --verbose "${TAP}/${CASK}"
+          if brew list --cask "${TAP}/${CASK}" > /dev/null 2>&1; then
+            echo "::error::${CASK} is still installed after uninstall"
+            exit 1
+          fi
+          brew install --cask --verbose "${TAP}/${CASK}"
+          ./.github/scripts/verify-cask.sh "${TAP}/${CASK}" "Casks/${CASK}.rb"
+
+      - name: Zap
+        env:
+          CASK: ${{ matrix.cask }}
+        run: brew uninstall --cask --zap --verbose "${TAP}/${CASK}"
