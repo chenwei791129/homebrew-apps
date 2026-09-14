@@ -1,5 +1,7 @@
 # Homebrew Apps
 
+[![Test Casks](https://github.com/chenwei791129/homebrew-apps/actions/workflows/test-casks.yml/badge.svg)](https://github.com/chenwei791129/homebrew-apps/actions/workflows/test-casks.yml)
+
 Homebrew Tap for [chenwei791129](https://github.com/chenwei791129) apps.
 
 ## Available Casks
