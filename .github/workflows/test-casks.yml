@@ -6,10 +6,12 @@ on:
     paths:
       - "Casks/**.rb"
       - ".github/workflows/test-casks.yml"
+      - ".github/scripts/verify-cask.sh"
   pull_request:
     paths:
       - "Casks/**.rb"
       - ".github/workflows/test-casks.yml"
+      - ".github/scripts/verify-cask.sh"
   workflow_dispatch:
     inputs:
       cask:
@@ -113,7 +115,7 @@ jobs:
       - name: Verify installed artifacts
         env:
           CASK: ${{ matrix.cask }}
-        run: ./scripts/verify-cask.sh "${TAP}/${CASK}" "Casks/${CASK}.rb"
+        run: ./.github/scripts/verify-cask.sh "${TAP}/${CASK}" "Casks/${CASK}.rb"
 
       # A reinstall exercises uninstall stanzas and re-runs the install steps on
       # a machine that has already seen the app once.
@@ -128,7 +130,7 @@ jobs:
             exit 1
           fi
           brew install --cask --verbose "${TAP}/${CASK}"
-          ./scripts/verify-cask.sh "${TAP}/${CASK}" "Casks/${CASK}.rb"
+          ./.github/scripts/verify-cask.sh "${TAP}/${CASK}" "Casks/${CASK}.rb"
 
       - name: Zap
         env:
