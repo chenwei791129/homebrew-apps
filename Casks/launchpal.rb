@@ -27,9 +27,11 @@ cask "launchpal" do
 
   caveats <<~EOS
     LaunchPal is not code-signed or notarized.
-    The quarantine attribute has been automatically removed during installation
-    so macOS Gatekeeper will not block the app from opening.
-    This is safe because LaunchPal is open-source:
+
+    The quarantine attribute is removed during installation to allow
+    LaunchPal to run on macOS without an Apple Developer ID signature.
+
+    LaunchPal is open source and its source code is available at:
       https://github.com/chenwei791129/launchpal
   EOS
 end
