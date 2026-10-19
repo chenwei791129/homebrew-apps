@@ -40,7 +40,7 @@ jobs:
   # by this workflow as soon as it is added — no changes needed here.
   discover:
     name: Discover casks
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     outputs:
       casks: ${{ steps.list.outputs.casks }}
     steps:
